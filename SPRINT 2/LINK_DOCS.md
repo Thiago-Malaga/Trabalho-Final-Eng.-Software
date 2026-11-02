@@ -2,3 +2,5 @@ LINK PARA O DOCS COM AS HISTÓRIAS DE USUÁRIOS, CRTÉRIOS DE ACEITAÇÃO E TEST
 
 https://docs.google.com/document/d/1kcYYUoPMkQFjppDsPOGFYrm2VyqPiRvyuCDNgY5s1vk/edit?usp=sharing
 
+https://docs.google.com/spreadsheets/d/1wbTpwRqI8INHJfsa7caJhoUIx-5T-iKFzkIS1tNyZ3k/edit?usp=sharing
+
