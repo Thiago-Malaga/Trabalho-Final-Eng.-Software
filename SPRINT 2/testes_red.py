@@ -2,6 +2,7 @@ import unittest
 from pathlib import Path
 
 import pandas as pd
+import json
 
 def carregar_tsv(caminho):
     return 1
@@ -9,10 +10,13 @@ def carregar_tsv(caminho):
 def filtrar_ocorrencias(dados, data_inicio=None, data_fim=None, cidade=None, tipo_crime=None):
     return 1
 
-def gerar_ranking_aisp(dados, tipo_crime):
+def gerar_ranking_aisp(dados, tipo_crime=None):
     return 1
 
-def analisar_bairro(dados, cidade, bairro):
+def analisar_regiao(dados, cidade, bairro=None):
+    return 1
+
+def gerar_saida(dados):
     return 1
 
 
@@ -42,18 +46,21 @@ class TesteAnalisador(unittest.TestCase):
         self.bairro_teste = self.dados[self.dados["Cidade"] == self.cidade_teste]["Bairro"].iloc[0]
         self.tipo_teste = self.dados["Tipo do crime"].iloc[0]
 
-    # HU01 — Importação do arquivo TSV
+# HU01 — Importação do arquivo TSV
     def test_importar_tsv(self):
         #le o arquivo de teste
+        #criterio de aceitação: 1
         resultado = carregar_tsv(str(ARQUIVO_TESTE))
 
         self.assertIsInstance(resultado, pd.DataFrame) #verifica se o resultado é um DataFrame
+        #criterio de aceitação: 2 e 3
         self.assertEqual(list(resultado.columns), COLUNAS) #ve se tem todas as colunas
         self.assertGreater(len(resultado), 0) #ve se tem algum registro
 
-    # HU02 — Filtros por período, cidade e tipo de crime
+# HU02 — Filtros por período, cidade e tipo de crime
 
     def test_filtrar_por_periodo(self):
+        #criterio de aceitação: 1
         #pega os dados lidos pelo arquivo de teste e pega a primeira data do arquivo
         data = self.dados["Data"].iloc[0]
         #filtra os dados pea primeira linha
@@ -61,13 +68,13 @@ class TesteAnalisador(unittest.TestCase):
 
         self.assertTrue((resultado["Data"] == data).all()) #ve se as datas batem
 
-    #testes de filtro HU02
     def test_filtrar_por_cidade(self):
         #filtra os dados pelo nome da cidade
         resultado = filtrar_ocorrencias(self.dados, cidade=self.cidade_teste)
         self.assertTrue((resultado["Cidade"] == self.cidade_teste).all())
 
     def test_filtrar_por_tipo_de_crime(self):
+        #criterio de aceitação: 2
         #verifica se o filtro retorna o tipo de crime da primeira linha do arquivo de teste
         resultado = filtrar_ocorrencias(self.dados, tipo_crime=self.tipo_teste)
         self.assertTrue((resultado["Tipo do crime"] == self.tipo_teste).all())
@@ -82,6 +89,7 @@ class TesteAnalisador(unittest.TestCase):
         self.assertTrue((resultado["Tipo do crime"] == self.tipo_teste).all())
 
     def test_retorna_dataframe_vazio_para_erro_filtro(self):
+        #criterio de aceitação: 3
         #pega o resultado do filtro com uma cidade inexistente
         resultado = filtrar_ocorrencias(self.dados, cidade="__CIDADE_INEXISTENTE__")
 
@@ -91,21 +99,22 @@ class TesteAnalisador(unittest.TestCase):
 
 
     def test_mantem_colunas_apos_filtrar(self):
+        #criterio de aceitação: 3
         #pega a cidade teste
         resultado = filtrar_ocorrencias(self.dados, cidade=self.cidade_teste)
 
         self.assertEqual(list(resultado.columns), COLUNAS) #verifica a ordem das colunas 
-    #fim testes de filtro HU02
+
     
 
 
-    # HU03 — Ranking de AISPs por tipo de crime
+# HU03 — Ranking de AISPs por tipo de crime
 
     def test_gerar_ranking_por_aisp(self):
+        #criterio de aceitação: 1
         #gera o ranking do arquivo de teste 
         resultado = gerar_ranking_aisp(
             self.dados,
-            tipo_crime=self.tipo_teste,
         )
 
         self.assertIsInstance(resultado, pd.DataFrame) #verifica se o resultado é um DataFrame
@@ -113,75 +122,61 @@ class TesteAnalisador(unittest.TestCase):
         self.assertGreater(len(resultado), 0) #verifica se tem algum registro
 
     def test_ordenar_ranking_decrescente(self):
-
-        resultado = gerar_ranking_aisp(
-            self.dados,
-            tipo_crime=self.tipo_teste,
-        )
+        #criterio de aceitação: 1
+        resultado = gerar_ranking_aisp(self.dados)
 
         totais = resultado["Total"].tolist()
         self.assertEqual(totais, sorted(totais, reverse=True))
 
-    def test_considerar_tipo_de_crime_escolhido(self):
-        resultado = gerar_ranking_aisp(
-            self.dados,
-            tipo_crime=self.tipo_teste,
-        )
+    def test_ranking_tipo_de_crime_escolhido(self):
+        #criterio de aceitação: 2
+        resultado = gerar_ranking_aisp(self.dados,tipo_crime=self.tipo_teste)
 
-        ocorrencias = self.dados[
-            self.dados["Tipo do crime"] == self.tipo_teste
-        ]
+        ocorrencias = self.dados[self.dados["Tipo do crime"] == self.tipo_teste]
         self.assertEqual(
             resultado["Total"].sum(),
             len(ocorrencias),
         )
 
     def test_avisar_quando_nao_houver_ocorrencias_no_ranking(self):
+        #criterio de aceitação: 3
         with self.assertRaises(ValueError):
             gerar_ranking_aisp(
                 self.dados,
                 tipo_crime="__TIPO_INEXISTENTE__",
             )
 
-    # HU04 — Estatísticas do bairro por faixa horária e dia da semana
+# HU04 — Estatísticas do bairro por faixa horária e dia da semana
 
     def test_analisar_cidade_e_bairro_selecionados(self):
-        resultado = analisar_bairro(
+        #criterio de aceitação: 1 e 2
+        resultado = analisar_regiao(
             self.dados,
             cidade=self.cidade_teste,
             bairro=self.bairro_teste,
         )
 
-        self.assertIsInstance(resultado, dict)
-        self.assertIn("por_faixa_horaria", resultado)
-        self.assertIn("por_dia_semana", resultado)
-
-
-    def test_contabilizar_por_dia_da_semana(self):
-        #pega o resultado da analise do bairro e cidade selecionados
-        resultado = analisar_bairro(self.dados,cidade=self.cidade_teste,bairro=self.bairro_teste)
-
-        #verifica se os dias da semana batem
-        dias = resultado["por_dia_semana"]
-        self.assertEqual(set(dias),{"seg.", "ter.", "qua.","qui.", "sex.", "sáb.", "dom.",})
-
-        #verifica se a soma dos dias batem com a soma das ocorrencias selecionados
-        self.assertEqual(
-            sum(dias.values()),
-            len(self.dados[
-                (self.dados["Cidade"] == self.cidade_teste)
-                & (self.dados["Bairro"] == self.bairro_teste)
-            ]),
-        )
+        self.assertIsInstance(resultado, pd.DataFrame)
+        self.assertIn("Dia da Semana", resultado.columns)
+        self.assertIn("Faixa Horária", resultado.columns)
+        self.assertIn("Quantidade", resultado.columns)
 
     def test_avisar_quando_bairro_nao_tiver_ocorrencias(self):
+        #criterio de aceitação: 3
         #verifica se o bairro selecionado tem ocorrencias, se nao tiver retorna um erro
         with self.assertRaises(ValueError):
-            analisar_bairro(
+            analisar_regiao(
                 self.dados,
                 cidade=self.cidade_teste,
                 bairro="__BAIRRO_INEXISTENTE__",
             )
+    #testa pra ver se a saida é um json
+    def test_gerar_saida_json(self):
+        resultado = gerar_saida(self.dados)
+
+        self.assertIsInstance(resultado, str)
+        dados_json = json.loads(resultado)
+        self.assertIsInstance(dados_json, (dict, list))
 
 
 if __name__ == "__main__":
