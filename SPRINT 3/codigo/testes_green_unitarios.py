@@ -5,11 +5,17 @@ from pathlib import Path
 import pandas as pd
 import json
 
-#importas as classes dos arquivos necessarios
+from servicos_periodos import (
+    analisar_regiao,
+    carregar_tsv,
+    filtrar_ocorrencias,
+    gerar_saida,
+)
+from servicos_ranking import gerar_ranking_aisp
 
 
 
-ARQUIVO_TESTE = Path(__file__).with_name("dados_teste.tsv")
+ARQUIVO_TESTE = Path(__file__).with_name("teste_tsv.tsv")
 #colunas esperadas
 COLUNAS = [
     "Cidade",
@@ -26,10 +32,10 @@ class TesteAnalisador(unittest.TestCase):
 
     def setUp(self):
         # A amostra será lida de um arquivo externo, ainda a ser criado.
-        self.dados = pd.read_csv(ARQUIVO_TESTE, sep="\t", dtype=str)
+        dados_legados = carregar_tsv(str(ARQUIVO_TESTE))
 
-        # Seleção de partes da amostra para cada conjunto de testes.
-        self.dados = self.dados[COLUNAS]
+        # Converte o formato oficial do TSV para o formato usado pelos testes.
+        self.dados = filtrar_ocorrencias(dados_legados)
         self.cidade_teste = self.dados["Cidade"].iloc[0]
         self.bairro_teste = self.dados[self.dados["Cidade"] == self.cidade_teste]["Bairro"].iloc[0]
         self.tipo_teste = self.dados["Tipo do crime"].iloc[0]

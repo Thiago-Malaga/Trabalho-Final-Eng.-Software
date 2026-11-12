@@ -35,13 +35,14 @@ COLUNAS_TESTE = [
 
 
 def carregar_tsv(caminho):
-    return pd.read_csv(
+    dados = pd.read_csv(
         Path(caminho),
         sep="\t",
         dtype=str,
         encoding="utf-8-sig",
         keep_default_na=False,
     )
+    return _normalizar_dados(dados)[COLUNAS_TESTE]
 
 
 def _normalizar_dados(dados):
