@@ -1,13 +1,34 @@
 from controlador import Controlador
-from servicos_periodos import analisar_regiao, filtrar_ocorrencias
-from servicos_ranking import gerar_ranking_aisp
-
+from servicos_periodos import ServicosPeriodos
+from servicos_ranking import ServicosRanking
+from servicos_filtro import ServicosFiltro
+from controle_dados import ControleDados
 
 class Terminal:
     """Interface mínima de interação com o usuário."""
 
     def __init__(self):
         self.controlador = Controlador()
+
+    def _perguntar_exportacao_json(self, dataframe) -> None:
+        """Pergunta ao usuário se deseja exportar o resultado atual para JSON."""
+        escolha = input("\nDeseja exportar esta consulta para um arquivo JSON? (s/n): ").strip().lower()
+        if escolha == 's':
+            nome_arquivo = input("Digite o nome do arquivo (ex: consulta.json): ").strip()
+            
+            if not nome_arquivo.lower().endswith(".json"):
+                nome_arquivo += ".json"
+                
+            try:
+                # Usando a conversão direta do Pandas (ignora a exigência de colunas brutas)
+                json_str = dataframe.to_json(orient="records", force_ascii=False)
+                
+                with open(nome_arquivo, "w", encoding="utf-8") as arquivo:
+                    arquivo.write(json_str)
+                    
+                print(f"Arquivo '{nome_arquivo}' salvo com sucesso!")
+            except Exception as erro:
+                print(f"Erro ao salvar o arquivo JSON: {erro}")
 
     def exibir_menu(self) -> None:
         while True:
@@ -43,9 +64,12 @@ class Terminal:
                 bairro = input("Bairro: ").strip()
 
                 try:
-                    resultado = analisar_regiao(dados, cidade, bairro)
+                    resultado = ServicosPeriodos.analisar_regiao(dados, cidade, bairro)
                     print("\nAnálise da região:")
                     print(resultado.to_string(index=False))
+
+                    self._perguntar_exportacao_json(resultado) #ve se o usuario quer exportar o resultado para json
+
                 except ValueError as erro:
                     print(f"Erro na análise: {erro}")
 
@@ -60,7 +84,7 @@ class Terminal:
                 ).strip()
 
                 try:
-                    dados_normalizados = filtrar_ocorrencias(dados)
+                    dados_normalizados = ServicosFiltro.filtrar_ocorrencias(dados)
                     if tipo_crime:
                         tipos = dados_normalizados["Tipo do crime"]
                         correspondencia = tipos[
@@ -72,12 +96,15 @@ class Terminal:
                             )
                         tipo_crime = correspondencia.iloc[0]
 
-                    resultado = gerar_ranking_aisp(
+                    resultado = ServicosRanking.gerar_ranking_aisp(
                         dados_normalizados,
                         tipo_crime or None,
                     )
                     print("\nRanking por AISP:")
                     print(resultado.to_string(index=False))
+
+                    self._perguntar_exportacao_json(resultado) #ve se o usuario quer exportar o resultado para json
+                    
                 except ValueError as erro:
                     print(f"Erro no ranking: {erro}")
 
