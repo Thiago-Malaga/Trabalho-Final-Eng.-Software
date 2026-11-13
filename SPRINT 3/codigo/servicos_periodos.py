@@ -46,4 +46,3 @@ class ServicosPeriodos:
         resultado = filtrado.groupby(["Dia da Semana", "Faixa Horária"]).size()
         resultado = resultado.reset_index(name="Quantidade")
         return resultado.sort_values("Quantidade", ascending=False)
-

@@ -1,36 +1,137 @@
+
 import pandas as pd
+from pathlib import Path
 
-# 1. Nomes dos arquivos (confira se o nome de entrada bate com o seu arquivo)
-arquivo_entrada = "dados_tsv_parana_2026.tsv"
-arquivo_saida = "dados_saida_5000.tsv"
+# ============================================================
+# CONFIGURAÇÕES
+# ============================================================
+
+arquivo_entrada = Path("dados_tsv_parana_2026.tsv")
+arquivo_saida = Path("dados_saida_5000.tsv")
+
 qtd_registros = 5000
+SEED = 42  # Permite reproduzir a mesma amostra
 
-# 2. Lê o arquivo respeitando a codificação do Windows (cp1252) ou UTF-8
-try:
-    df = pd.read_csv(arquivo_entrada, sep="\t", encoding="utf-8")
-except UnicodeDecodeError:
-    df = pd.read_csv(arquivo_entrada, sep="\t", encoding="cp1252")
+# ============================================================
+# 1. LEITURA DO ARQUIVO
+# ============================================================
 
-# 3. Remove espaços extras nos cabeçalhos e exclui 'ID' e 'Tipo Natureza'
-df.columns = df.columns.str.strip()
-df = df.drop(columns=["ID", "Tipo Natureza"], errors="ignore")
+df = None
+codificacoes = ["utf-8-sig", "cp1252", "latin1"]
 
-# 4. Caso o arquivo original já tenha sido baixado com '' gravado, corrige os termos
-if df.to_string().find("\ufffd") != -1:
-    df.columns = [c.replace("M\ufffds", "Mês").replace("Munic\ufffdpio", "Município") for c in df.columns]
-    df = df.replace({
-        r"s\ufffdb\.": "sáb.",
-        r"(\d+)\ufffd": r"\1ª",
-        r"AISP \ufffd ": "AISP – ",
-        r"Igua\ufffdu": "Iguaçu",
-        r"S\ufffdo Jos\ufffd": "São José",
-    }, regex=True)
+for encoding in codificacoes:
+    try:
+        df = pd.read_csv(
+            arquivo_entrada,
+            sep="\t",
+            encoding=encoding,
+            dtype=str,
+            keep_default_na=False,
+            on_bad_lines="error"
+        )
+        print(f"Arquivo lido com codificação: {encoding}")
+        break
 
-# 5. Pega 5.000 registros aleatórios
+    except UnicodeDecodeError:
+        continue
+
+if df is None:
+    raise ValueError("Não foi possível identificar a codificação.")
+
+# ============================================================
+# 2. LIMPEZA DOS CABEÇALHOS
+# ============================================================
+
+df.columns = (
+    df.columns
+    .str.strip()
+    .str.replace("\ufeff", "", regex=False)
+)
+
+# Remove colunas desnecessárias
+df = df.drop(
+    columns=["ID", "Tipo Natureza"],
+    errors="ignore"
+)
+
+# ============================================================
+# 3. LIMPEZA DOS DADOS
+# ============================================================
+
+# Remove espaços extras nas extremidades
+for coluna in df.columns:
+    df[coluna] = df[coluna].str.strip()
+
+# Substitui caracteres de substituição por vazio
+df = df.replace("\ufffd", "", regex=False)
+
+# Remove caracteres de controle que podem prejudicar o TSV
+for coluna in df.columns:
+    df[coluna] = (
+        df[coluna]
+        .str.replace(r"[\r\n\t]+", " ", regex=True)
+        .str.replace(r"\s{2,}", " ", regex=True)
+        .str.strip()
+    )
+
+# ============================================================
+# 4. VERIFICAÇÃO DA ESTRUTURA
+# ============================================================
+
+print("\nEstrutura do arquivo:")
+print(f"Registros: {len(df)}")
+print(f"Colunas: {len(df.columns)}")
+print(f"Nomes: {list(df.columns)}")
+
+# ============================================================
+# 5. AMOSTRAGEM ALEATÓRIA
+# ============================================================
+
 n_amostra = min(qtd_registros, len(df))
-df_amostra = df.sample(n=n_amostra)
 
-# 6. Salva o novo arquivo em UTF-8 com BOM (abre perfeitamente no VS Code e Excel)
-df_amostra.to_csv(arquivo_saida, sep="\t", index=False, encoding="utf-8-sig")
+df_amostra = df.sample(
+    n=n_amostra,
+    random_state=SEED
+).reset_index(drop=True)
 
-print(f"Concluído! {len(df_amostra)} registros salvos em '{arquivo_saida}'.")
+# ============================================================
+# 6. EXPORTAÇÃO TSV
+# ============================================================
+
+df_amostra.to_csv(
+    arquivo_saida,
+    sep="\t",
+    index=False,
+    encoding="utf-8-sig",
+    lineterminator="\n",
+    quoting=3,
+    quotechar='"'
+)
+
+# ============================================================
+# 7. VERIFICAÇÃO FINAL
+# ============================================================
+
+# Reabre o arquivo para verificar se a estrutura foi preservada
+df_teste = pd.read_csv(
+    arquivo_saida,
+    sep="\t",
+    encoding="utf-8-sig",
+    dtype=str,
+    keep_default_na=False
+)
+
+assert list(df_teste.columns) == list(df_amostra.columns)
+assert len(df_teste) == len(df_amostra)
+assert df_teste.shape[1] == df_amostra.shape[1]
+
+print("\n======================================")
+print("          PROCESSAMENTO OK")
+print("======================================")
+print(f"Arquivo: {arquivo_saida}")
+print(f"Registros: {len(df_teste)}")
+print(f"Colunas: {len(df_teste.columns)}")
+print(f"Tamanho: {arquivo_saida.stat().st_size / 1024:.2f} KB")
+print("Separador: TAB")
+print("Codificação: UTF-8 com BOM")
+print("Integridade estrutural: OK")
