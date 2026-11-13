@@ -216,18 +216,18 @@ class TesteAnalisador(unittest.TestCase):
 #testes de saida
 
     def test_gerar_saida_json(self):
-        resultado = ServicosPeriodos.gerar_saida(self.dados)
+        resultado = ControleDados.gerar_saida(self.dados)
 
         self.assertIsInstance(resultado, str)
 
     def test_gerar_saida_json_valido(self):
-        resultado = ServicosPeriodos.gerar_saida(self.dados)
+        resultado = ControleDados.gerar_saida(self.dados)
 
         #verifica se o resultado pode ser interpretado como um json valido
         json.loads(resultado)
 
     def test_gerar_saida_json_estrutura(self):
-        resultado = ServicosPeriodos.gerar_saida(self.dados)
+        resultado = ControleDados.gerar_saida(self.dados)
         dados_json = json.loads(resultado)
 
         self.assertIsInstance(dados_json, (dict, list))
