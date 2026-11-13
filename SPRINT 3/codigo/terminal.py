@@ -30,6 +30,21 @@ class Terminal:
             except Exception as erro:
                 print(f"Erro ao salvar o arquivo JSON: {erro}")
 
+    def _imprimir_analise_periodos(self, resultado) -> None:
+        """Exibe os dias por total de ocorrências e suas faixas horárias."""
+        totais_dia = (
+            resultado.groupby("Dia da Semana")["Quantidade"]
+            .sum()
+            .sort_values(ascending=False, kind="stable")
+        )
+
+        for dia, total in totais_dia.items():
+            print(f"\n=========== {dia} (total={total}) ===========")
+            faixas = resultado[resultado["Dia da Semana"] == dia]
+            faixas = faixas.sort_values("Quantidade", ascending=False, kind="stable")
+            for _, faixa in faixas.iterrows():
+                print(f"{faixa['Faixa Horária']}: {faixa['Quantidade']}")
+
     def exibir_menu(self) -> None:
         while True:
             print("\n=== ANALISADOR DE OCORRÊNCIAS CRIMINAIS ===")
@@ -67,7 +82,7 @@ class Terminal:
                 try:
                     resultado = ServicosPeriodos.analisar_regiao(dados, cidade, bairro)
                     print("\nAnálise da região:")
-                    print(resultado.to_string(index=False))
+                    self._imprimir_analise_periodos(resultado)
 
                     self._perguntar_exportacao_json(resultado) #ve se o usuario quer exportar o resultado para json
 
