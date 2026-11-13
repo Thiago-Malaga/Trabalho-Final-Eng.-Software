@@ -37,6 +37,7 @@ class Terminal:
             print("2 - Imprimir todos os dados")
             print("3 - Analisar região por dia e faixa horária")
             print("4 - Gerar ranking por AISP")
+            print("5 - Filtrar ocorrências")
             print("0 - Sair")
 
             opcao = input("Escolha uma opção: ").strip()
@@ -107,6 +108,39 @@ class Terminal:
                     
                 except ValueError as erro:
                     print(f"Erro no ranking: {erro}")
+
+            elif opcao == "5":
+                dados = self.controlador.obter_dados()
+                if dados.empty:
+                    print("Erro: importe um arquivo TSV antes de filtrar.")
+                    continue
+
+                print("\nInsira os parâmetros de filtro (pressione Enter para ignorar um parâmetro):")
+                data_inicio = input("Data início (DD/MM/AAAA): ").strip() or None
+                data_fim = input("Data fim (DD/MM/AAAA): ").strip() or None
+                cidade = input("Município: ").strip() or None
+                tipo_crime = input("Tipo de crime: ").strip() or None
+
+                try:
+                    resultado = ServicosFiltro.filtrar_ocorrencias(
+                        dados, 
+                        data_inicio=data_inicio, 
+                        data_fim=data_fim, 
+                        cidade=cidade, 
+                        tipo_crime=tipo_crime
+                    )
+                    
+                    if resultado.empty:
+                        print("\nNenhuma ocorrência encontrada com os filtros aplicados.")
+                    else:
+                        print("\nResultados do Filtro:")
+                        print(resultado.to_string(index=False))
+                        print(f"\nTotal de registros filtrados: {len(resultado)}")
+                        
+                        self._perguntar_exportacao_json(resultado)
+                        
+                except ValueError as erro:
+                    print(f"Erro ao filtrar: {erro}")
 
             elif opcao == "0":
                 print("Encerrando o sistema.")
