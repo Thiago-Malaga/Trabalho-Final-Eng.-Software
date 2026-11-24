@@ -4,7 +4,13 @@ import pandas as pd
 
 from controle_dados import ControleDados
 from dados import Dados
-from servicos_filtro import ServicosFiltro
+from servicos_filtro import  (
+    ServicosFiltro,
+    FiltroDataInicio,
+    FiltroDataFim,
+    FiltroTextoIgual,
+ ) # atualizado strategy
+
 from servicos_periodos import ServicosPeriodos
 from servicos_ranking import ServicosRanking
 
@@ -49,13 +55,20 @@ class Controlador:
         dados: Optional[pd.DataFrame] = None,
     ) -> pd.DataFrame:
         base = self._obter_base_dados(dados)
-        return ServicosFiltro.filtrar_ocorrencias(
-            base,
-            data_inicio=data_inicio,
-            data_fim=data_fim,
-            cidade=cidade,
-            tipo_crime=tipo_crime,
-        )
+
+        #Strategy: o Controlador decide QUAIS filtros usar!! os `if` que antes ficavam dentro do ServicosFiltro vieram pra cá, mas agora eles só montam a lista. Quem filtra de verdade são as estratégias.
+        
+        filtros = []
+        if data_inicio is not None:
+            filtros.append(FiltroDataInicio(data_inicio))
+        if data_fim is not None:
+            filtros.append(FiltroDataFim(data_fim))
+        if cidade is not None:
+            filtros.append(FiltroTextoIgual("Cidade", cidade))
+        if tipo_crime is not None:
+            filtros.append(FiltroTextoIgual("Tipo do crime", tipo_crime))
+
+        return ServicosFiltro.filtrar_ocorrencias(base, filtros)
 
     def gerar_ranking_aisp(
         self,
@@ -63,7 +76,7 @@ class Controlador:
         dados: Optional[pd.DataFrame] = None,
     ) -> pd.DataFrame:
         base = self._obter_base_dados(dados)
-        dados_normalizados = ServicosFiltro.filtrar_ocorrencias(base)
+        dados_normalizados = ServicosFiltro.filtrar_ocorrencias(base, []) # Filtro vazio, apenas para normalizar os dados
 
         crime_filtro = None
         if tipo_crime:
