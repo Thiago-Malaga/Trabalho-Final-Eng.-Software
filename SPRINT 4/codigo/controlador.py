@@ -14,6 +14,8 @@ from servicos_filtro import  (
 from servicos_periodos import ServicosPeriodos
 from servicos_ranking import ServicosRanking
 
+from padrao_caching_proxy import CachingProxyConsultas, ConsultasReais
+
 
 class Controlador:
     """Facade que centraliza e coordena as operações entre a interface e os subsistemas."""
@@ -21,6 +23,10 @@ class Controlador:
     def __init__(self):
         self.dados = Dados()
         self.controle_dados = ControleDados(self.dados)
+
+        #instancia o proxy de caching
+        consultas_reais = ConsultasReais(self.controle_dados.obter_dados())
+        self.consultas = CachingProxyConsultas(consultas_reais)
 
     def _obter_base_dados(self, dados: Optional[pd.DataFrame] = None) -> pd.DataFrame:
         if dados is not None:
@@ -31,11 +37,17 @@ class Controlador:
         return base
 
     def importar_dados(self, caminho: str) -> pd.DataFrame:
-        return self.controle_dados.carregar_dados(caminho)
+        retorno = self.controle_dados.carregar_dados(caminho)
+        self.consultas._servico_real._dados = self.controle_dados.obter_dados()
+        self.consultas.limpar_cache() #limpa o cache quando novos dados sao carregados
+        return retorno
 
     def carregar_tsv(self, caminho: str) -> pd.DataFrame:
+        self.consultas.limpar_cache() #limpa o cache quando novos dados sao carregados
         dados = self.controle_dados.carregar_dados(caminho)
-        return ControleDados._normalizar_dados(dados)[ControleDados.COLUNAS_TESTE]
+        retorno = ControleDados._normalizar_dados(dados)[ControleDados.COLUNAS_TESTE]
+        self.consultas._servico_real._dados = self.controle_dados.obter_dados()
+        return retorno
 
     def possui_dados(self) -> bool:
         return self.controle_dados.verificar_dados()
@@ -52,61 +64,37 @@ class Controlador:
         data_fim: Optional[str] = None,
         cidade: Optional[str] = None,
         tipo_crime: Optional[str] = None,
-        dados: Optional[pd.DataFrame] = None,
+        #dados: Optional[pd.DataFrame] = None,
     ) -> pd.DataFrame:
-        base = self._obter_base_dados(dados)
+        #base = self._obter_base_dados(dados)
 
-        #Strategy: o Controlador decide QUAIS filtros usar!! os `if` que antes ficavam dentro do ServicosFiltro vieram pra cá, mas agora eles só montam a lista. Quem filtra de verdade são as estratégias.
         
-        filtros = []
-        if data_inicio is not None:
-            filtros.append(FiltroDataInicio(data_inicio))
-        if data_fim is not None:
-            filtros.append(FiltroDataFim(data_fim))
-        if cidade is not None:
-            filtros.append(FiltroTextoIgual("Cidade", cidade))
-        if tipo_crime is not None:
-            filtros.append(FiltroTextoIgual("Tipo do crime", tipo_crime))
 
-        return ServicosFiltro.filtrar_ocorrencias(base, filtros)
+        #proxy sequeestra o chamado e verifica se ja tem cache ou n
+        return self.consultas.filtrar_ocorrencias(data_inicio=data_inicio, data_fim=data_fim, cidade=cidade, tipo_crime=tipo_crime)
+        #return ServicosFiltro.filtrar_ocorrencias(base, filtros) #antes do proxy
 
     def gerar_ranking_aisp(
         self,
         tipo_crime: Optional[str] = None,
-        dados: Optional[pd.DataFrame] = None,
+        #dados: Optional[pd.DataFrame] = None,
     ) -> pd.DataFrame:
-        base = self._obter_base_dados(dados)
-        dados_normalizados = ServicosFiltro.filtrar_ocorrencias(base, []) # Filtro vazio, apenas para normalizar os dados
+        #base = self._obter_base_dados(dados)
 
-        crime_filtro = None
-        if tipo_crime:
-            tipos = dados_normalizados["Tipo do crime"]
-            correspondencia = tipos[
-                tipos.str.casefold() == tipo_crime.strip().casefold()
-            ]
-            if correspondencia.empty:
-                raise ValueError(
-                    "Não há ocorrências registradas para o tipo de crime escolhido."
-                )
-            crime_filtro = correspondencia.iloc[0]
-
-        return ServicosRanking.gerar_ranking_aisp(
-            dados_normalizados,
-            tipo_crime=crime_filtro,
-        )
+        return self.consultas.gerar_ranking_aisp(tipo_crime=tipo_crime)
+        #return ServicosRanking.gerar_ranking_aisp( dados_normalizados, tipo_crime=crime_filtro)
 
     def analisar_regiao(
         self,
         cidade: str,
         bairro: str,
-        dados: Optional[pd.DataFrame] = None,
+        #dados: Optional[pd.DataFrame] = None,
     ) -> pd.DataFrame:
-        base = self._obter_base_dados(dados)
-        return ServicosPeriodos.analisar_regiao(
-            base,
-            cidade=cidade,
-            bairro=bairro,
-        )
+        #base = self._obter_base_dados(dados)
+
+        #proxy no lugar de chamar direto o servico
+        return self.consultas.analisar_regiao(cidade=cidade, bairro=bairro)
+        #return ServicosPeriodos.analisar_regiao( base, cidade=cidade, bairro=bairro)
 
     def gerar_saida_json(self, dados: Optional[pd.DataFrame] = None) -> str:
         base = self._obter_base_dados(dados)

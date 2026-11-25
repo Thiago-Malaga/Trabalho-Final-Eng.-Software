@@ -6,7 +6,7 @@ import pandas as pd #talvez seja impor recursivo
 
 from controle_dados import ControleDados
 from dados import Dados
-from servicos_filtro import ServicosFiltro
+from servicos_filtro import (ServicosFiltro, FiltroDataInicio, FiltroDataFim, FiltroTextoIgual)
 from servicos_periodos import ServicosPeriodos
 from servicos_ranking import ServicosRanking
 
@@ -19,15 +19,15 @@ class InterfaceConsultas(ABC): #interface SUBJECT do padrao
     #se nao for declarado, da erro
     @abstractmethod
     def filtrar_ocorrencias(self, data_inicio: str | None = None, data_fim: str | None = None,
-        cidade: str | None = None, tipo_crime: str | None = None) -> pd.DataFrame:
+        cidade: str | None = None, tipo_crime: str | None = None) -> pd.DataFrame: #faz a alteracao p/ o strategy
         pass
 
     @abstractmethod
-    def gerar_ranking_aisp(self, tipo_crime: str | None = None) -> pd.DataFrame:
+    def gerar_ranking_aisp(self, tipo_crime: str | None = None) -> pd.DataFrame: #mesmo aqui
         pass
 
     @abstractmethod
-    def analisar_regiao(self, cidade: str | None, bairro: str | None) -> pd.DataFrame:
+    def analisar_regiao(self, cidade: str | None, bairro: str | None) -> pd.DataFrame: #mesmo aqui
         pass
 
 
@@ -37,16 +37,48 @@ class ConsultasReais(InterfaceConsultas): #REAL SUBJECT do padrao
     def __init__(self, dados: Dados) -> None:
         self._dados = dados
 
+    def atualizar_dados(self, dados: Dados) -> None:
+        self._dados = dados
+
     #implementa os metodos abstratos da interface chamando os servicos
-    def filtrar_ocorrencias(self, data_inicio: str | None = None,data_fim: str | None = None,
+    def filtrar_ocorrencias(self, data_inicio: str | None = None, data_fim: str | None = None,
         cidade: str | None = None, tipo_crime: str | None = None) -> pd.DataFrame:
-        #usa diretamente o Filtro pq se usar o FACADE ele da erro de recursao kkk
-        return ServicosFiltro.filtrar_ocorrencias(self._dados,data_inicio=data_inicio,
-            data_fim=data_fim, cidade=cidade, tipo_crime=tipo_crime)
+
+
+        #Strategy: o Controlador decide QUAIS filtros usar!! 
+        #os `if` que antes ficavam dentro do ServicosFiltro vieram pra cá, 
+        #mas agora eles só montam a lista. Quem filtra de verdade são as estratégias.
+
+        filtros = []
+        if data_inicio is not None:
+            filtros.append(FiltroDataInicio(data_inicio))
+        if data_fim is not None:
+            filtros.append(FiltroDataFim(data_fim))
+        if cidade is not None:
+            filtros.append(FiltroTextoIgual("Cidade", cidade))
+        if tipo_crime is not None:
+            filtros.append(FiltroTextoIgual("Tipo do crime", tipo_crime))
+
+        return ServicosFiltro.filtrar_ocorrencias(self._dados, filtros=filtros)
+    
 
     def gerar_ranking_aisp(self, tipo_crime: str | None = None) -> pd.DataFrame:
         #mesma coisa pra esse
-        return ServicosRanking.gerar_ranking(self._dados, tipo_crime=tipo_crime)
+        dados_normalizados = ServicosFiltro.filtrar_ocorrencias(self._dados, []) # Filtro vazio, apenas para normalizar os dados
+        
+        crime_filtro = None
+        if tipo_crime:
+            tipos = dados_normalizados["Tipo do crime"]
+            correspondencia = tipos[
+                tipos.str.casefold() == tipo_crime.strip().casefold()
+            ]
+            if correspondencia.empty:
+                raise ValueError(
+                    "Não há ocorrências registradas para o tipo de crime escolhido."
+                )
+            crime_filtro = correspondencia.iloc[0]
+
+        return ServicosRanking.gerar_ranking_aisp(dados_normalizados, tipo_crime=tipo_crime)
 
     def analisar_regiao(self, cidade: str | None, bairro: str | None) -> pd.DataFrame:
         # e esse tbm
@@ -142,8 +174,8 @@ class CachingProxyConsultas(InterfaceConsultas): #PROXY
 
     #declara os metodos abstratos da interface
     #Sequestra as chamadas de funcao pra ver se ja foram feiras
-    def filtrar_ocorrencias( self, data_inicio: str | None = None, data_fim: str | None = None,
-        cidade: str | None = None, tipo_crime: str | None = None, ) -> pd.DataFrame:
+    def filtrar_ocorrencias(self, data_inicio: str | None = None, data_fim: str | None = None,
+        cidade: str | None = None, tipo_crime: str | None = None) -> pd.DataFrame:
         # '->' define o tipo de retorno da funcao
         chave = self._criar_chave("filtro", data_inicio, data_fim, cidade, tipo_crime)
 
@@ -152,8 +184,7 @@ class CachingProxyConsultas(InterfaceConsultas): #PROXY
         #se nao, chama a funcao real e armazena o resultado no cache
         return self._obter_ou_computar(
             chave,
-            lambda: self._servico_real.filtrar_ocorrencias( data_inicio=data_inicio,
-                data_fim=data_fim, cidade=cidade, tipo_crime=tipo_crime),
+            lambda: self._servico_real.filtrar_ocorrencias(data_inicio=data_inicio, data_fim=data_fim, cidade=cidade, tipo_crime=tipo_crime),
 )
 
     def gerar_ranking_aisp(self, tipo_crime: str | None = None) -> pd.DataFrame:
