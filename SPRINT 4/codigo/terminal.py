@@ -68,9 +68,11 @@ class Terminal:
                 bairro = input("Bairro: ").strip()
 
                 try:
+                    hits_antes = self.controlador.consultas.obter_estatisticas()["hits"]
                     resultado = self.controlador.analisar_regiao(cidade, bairro)
                     print("\nAnálise da região:")
                     self._imprimir_analise_periodos(resultado)
+                    self._exibir_status_cache(hits_antes)
 
                     self._perguntar_exportacao_json(resultado)
 
@@ -87,11 +89,13 @@ class Terminal:
                 ).strip() or None
 
                 try:
+                    hits_antes = self.controlador.consultas.obter_estatisticas()["hits"]
                     resultado = self.controlador.gerar_ranking_aisp(
                         tipo_crime=tipo_crime
                     )
                     print("\nRanking por AISP:")
                     print(resultado.to_string(index=False))
+                    self._exibir_status_cache(hits_antes)
 
                     self._perguntar_exportacao_json(resultado)
 
@@ -110,6 +114,7 @@ class Terminal:
                 tipo_crime = input("Tipo de crime: ").strip() or None
 
                 try:
+                    hits_antes = self.controlador.consultas.obter_estatisticas()["hits"]
                     resultado = self.controlador.filtrar_ocorrencias(
                         data_inicio=data_inicio,
                         data_fim=data_fim,
@@ -124,6 +129,7 @@ class Terminal:
                         print(resultado.to_string(index=False))
                         print(f"\nTotal de registros filtrados: {len(resultado)}")
 
+                        self._exibir_status_cache(hits_antes)
                         self._perguntar_exportacao_json(resultado)
 
                 except ValueError as erro:
@@ -135,3 +141,10 @@ class Terminal:
 
             else:
                 print("Opção inválida. Tente novamente.")
+
+    def _exibir_status_cache(self, hits_antes: int) -> None: 
+            stats = self.controlador.consultas.obter_estatisticas()
+            if stats["hits"] > hits_antes:
+                print(f"[CACHE HIT] Resultado obtido do cache (hits: {stats['hits']}, misses: {stats['misses']}).") 
+            else: 
+                print(f"[CACHE MISS] Consulta executada na base (hits: {stats['hits']}, misses: {stats['misses']}).") 
