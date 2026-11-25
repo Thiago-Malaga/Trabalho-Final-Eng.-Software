@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod  # necessário para criar a interface do Strategy
 
 from controle_dados import ControleDados
-from servicos_periodos import ServicosPeriodos
 
 
 class FiltroStrategy(ABC):
