@@ -1,3 +1,5 @@
+import time
+
 from controlador import Controlador
 
 
@@ -69,10 +71,14 @@ class Terminal:
 
                 try:
                     hits_antes = self.controlador.consultas.obter_estatisticas()["hits"]
+
+                    inicio = time.perf_counter()
                     resultado = self.controlador.analisar_regiao(cidade, bairro)
+                    tempo = time.perf_counter() - inicio
+
                     print("\nAnálise da região:")
                     self._imprimir_analise_periodos(resultado)
-                    self._exibir_status_cache(hits_antes)
+                    self._exibir_status_cache(hits_antes, tempo)
 
                     self._perguntar_exportacao_json(resultado)
 
@@ -90,12 +96,16 @@ class Terminal:
 
                 try:
                     hits_antes = self.controlador.consultas.obter_estatisticas()["hits"]
+
+                    inicio = time.perf_counter()
                     resultado = self.controlador.gerar_ranking_aisp(
                         tipo_crime=tipo_crime
                     )
+                    tempo = time.perf_counter() - inicio
+
                     print("\nRanking por AISP:")
                     print(resultado.to_string(index=False))
-                    self._exibir_status_cache(hits_antes)
+                    self._exibir_status_cache(hits_antes, tempo)
 
                     self._perguntar_exportacao_json(resultado)
 
@@ -115,12 +125,15 @@ class Terminal:
 
                 try:
                     hits_antes = self.controlador.consultas.obter_estatisticas()["hits"]
+
+                    inicio = time.perf_counter()
                     resultado = self.controlador.filtrar_ocorrencias(
                         data_inicio=data_inicio,
                         data_fim=data_fim,
                         cidade=cidade,
                         tipo_crime=tipo_crime,
                     )
+                    tempo = time.perf_counter() - inicio
 
                     if resultado.empty:
                         print("\nNenhuma ocorrência encontrada com os filtros aplicados.")
@@ -129,7 +142,7 @@ class Terminal:
                         print(resultado.to_string(index=False))
                         print(f"\nTotal de registros filtrados: {len(resultado)}")
 
-                        self._exibir_status_cache(hits_antes)
+                        self._exibir_status_cache(hits_antes, tempo)
                         self._perguntar_exportacao_json(resultado)
 
                 except ValueError as erro:
@@ -142,9 +155,13 @@ class Terminal:
             else:
                 print("Opção inválida. Tente novamente.")
 
-    def _exibir_status_cache(self, hits_antes: int) -> None: 
-            stats = self.controlador.consultas.obter_estatisticas()
-            if stats["hits"] > hits_antes:
-                print(f"[CACHE HIT] Resultado obtido do cache (hits: {stats['hits']}, misses: {stats['misses']}).") 
-            else: 
-                print(f"[CACHE MISS] Consulta executada na base (hits: {stats['hits']}, misses: {stats['misses']}).") 
+    def _exibir_status_cache(self, hits_antes: int, tempo: float) -> None:
+        stats = self.controlador.consultas.obter_estatisticas()
+
+        if stats["hits"] > hits_antes:
+            print("[CACHE HIT] Resultado obtido do cache.")
+        else:
+            print("[CACHE MISS] Consulta executada na base.")
+
+        print(f"Tempo da pesquisa: {tempo:.6f} segundos.")
+        print(f"Hits: {stats['hits']} | Misses: {stats['misses']}")
