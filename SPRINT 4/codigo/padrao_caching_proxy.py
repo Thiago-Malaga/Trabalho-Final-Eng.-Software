@@ -34,10 +34,10 @@ class InterfaceConsultas(ABC): #interface SUBJECT do padrao
 class ConsultasReais(InterfaceConsultas): #REAL SUBJECT do padrao
     #chama as consultas sem cache no caso de ser Miss
 
-    def __init__(self, dados: Dados) -> None:
+    def __init__(self, dados: pd.DataFrame) -> None:
         self._dados = dados
 
-    def atualizar_dados(self, dados: Dados) -> None:
+    def atualizar_dados(self, dados: pd.DataFrame) -> None:
         self._dados = dados
 
     #implementa os metodos abstratos da interface chamando os servicos
