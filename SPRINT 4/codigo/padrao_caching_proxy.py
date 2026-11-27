@@ -65,18 +65,6 @@ class ConsultasReais(InterfaceConsultas): #REAL SUBJECT do padrao
     def gerar_ranking_aisp(self, tipo_crime: str | None = None) -> pd.DataFrame:
         #mesma coisa pra esse
         dados_normalizados = ServicosFiltro.filtrar_ocorrencias(self._dados, []) # Filtro vazio, apenas para normalizar os dados
-        
-        crime_filtro = None
-        if tipo_crime:
-            tipos = dados_normalizados["Tipo do crime"]
-            correspondencia = tipos[
-                tipos.str.casefold() == tipo_crime.strip().casefold()
-            ]
-            if correspondencia.empty:
-                raise ValueError(
-                    "Não há ocorrências registradas para o tipo de crime escolhido."
-                )
-            crime_filtro = correspondencia.iloc[0]
 
         return ServicosRanking.gerar_ranking_aisp(dados_normalizados, tipo_crime=tipo_crime)
 
